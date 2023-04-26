@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -10,12 +11,48 @@ import (
 	"strings"
 	"time"
 
+	_ "github.com/mattn/go-sqlite3"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/vul-dbgen/common"
+	utils "github.com/vul-dbgen/share"
 	"github.com/vul-dbgen/updater"
-	"github.com/vul-dbgen/share"
 )
+
+var DB *sql.DB
+var err error
+var i int
+
+func init() {
+	DB, err = sql.Open("sqlite3", "cnnvd.db")
+	if err != nil {
+		panic(err)
+	}
+	err = DB.Ping()
+	if err != nil {
+		return
+	}
+	DB.SetMaxOpenConns(200)                 //最大连接数
+	DB.SetMaxIdleConns(10)                  //连接池里最大空闲连接数。必须要比maxOpenConns小
+	DB.SetConnMaxLifetime(time.Second * 10) //最大存活保持时间
+	DB.SetConnMaxIdleTime(time.Second * 10) //最大空闲保持时间
+
+	return
+
+}
+func getDescribe(db *sql.DB, cveid string, describe string) string {
+	var url, cnnvd_level, cnnvd_title, cve_id, patch, reference_url, threat_type, update, upload_time, vulnerable_detail, vulnerable_notice, vulnerable_type sql.NullString
+
+	rows := db.QueryRow(`SELECT * FROM CNNVD201910 where cve_id=$1`, cveid)
+	err = rows.Scan(&url, &cnnvd_level, &cnnvd_title, &cve_id, &patch, &reference_url, &threat_type, &update, &upload_time, &vulnerable_detail, &vulnerable_notice, &vulnerable_type)
+	if err != nil {
+		return describe
+	}
+	i = i + 1
+	log.Println("cnnvd 计数器：", i)
+	return vulnerable_detail.String
+
+}
 
 type memDB struct {
 	keyVer   common.KeyVersion
