@@ -24,6 +24,7 @@ var err error
 var i int
 
 func init() {
+	//打开 cnnvd数据库
 	DB, err = sql.Open("sqlite3", "cnnvd.db")
 	if err != nil {
 		panic(err)
@@ -40,13 +41,15 @@ func init() {
 	return
 
 }
-func getDescribe(db *sql.DB, cveid string, describe string) string {
+
+// 更具cve编号 搜索在cnnvd中的中文说明
+func getDescribe(db *sql.DB, cveid string, srcDescribe string) string {
 	var url, cnnvd_level, cnnvd_title, cve_id, patch, reference_url, threat_type, update, upload_time, vulnerable_detail, vulnerable_notice, vulnerable_type sql.NullString
 
 	rows := db.QueryRow(`SELECT * FROM CNNVD201910 where cve_id=$1`, cveid)
 	err = rows.Scan(&url, &cnnvd_level, &cnnvd_title, &cve_id, &patch, &reference_url, &threat_type, &update, &upload_time, &vulnerable_detail, &vulnerable_notice, &vulnerable_type)
 	if err != nil {
-		return describe
+		return srcDescribe
 	}
 	i = i + 1
 	log.Println("cnnvd 计数器：", i)
