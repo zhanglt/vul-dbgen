@@ -376,28 +376,29 @@ func (fetcher *NVDMetadataFetcher) AddMetadata(v *updater.VulnerabilityWithLock)
 	return nil
 }
 
+// 返回 CVE 的发布日期和最后修改日期
 func (fetcher *NVDMetadataFetcher) AddCveDate(name string) (time.Time, time.Time, bool) {
 	fetcher.lock.Lock()
 	defer fetcher.lock.Unlock()
 
-	if nvd, ok := fetcher.metadata[name]; ok {
-		return nvd.PublishedDate, nvd.LastModifiedDate, true
+	if nvd, ok := fetcher.metadata[name]; ok { // 检查给定的 name 是否存在于 metadata 中
+		return nvd.PublishedDate, nvd.LastModifiedDate, true // 返回 CVE 的发布日期和最后修改日期以及 true 表示存在
 	}
 
-	return time.Time{}, time.Time{}, false
+	return time.Time{}, time.Time{}, false // 如果不存在则返回零值时间和 false 表示不存在
 }
 
-// Return affected version and fixed version
+// 返回受影响版本和修复版本
 func (fetcher *NVDMetadataFetcher) AddAffectedVersion(name string) ([]string, []string, bool) {
 	fetcher.lock.Lock()
 	defer fetcher.lock.Unlock()
 
-	if nvd, ok := fetcher.metadata[name]; ok {
+	if nvd, ok := fetcher.metadata[name]; ok { // 检查给定的 name 是否存在于 metadata 中
 		affects := make([]string, 0)
 		fixes := make([]string, 0)
 		opAffect := ""
 		opFix := ""
-		for _, v := range nvd.VulnVersions {
+		for _, v := range nvd.VulnVersions { // 遍历受影响版本信息
 			if v.StartIncluding != "" {
 				affects = append(affects, fmt.Sprintf("%s>=%s", opAffect, v.StartIncluding))
 				opAffect = ""
@@ -415,17 +416,17 @@ func (fetcher *NVDMetadataFetcher) AddAffectedVersion(name string) ([]string, []
 			opAffect = "||"
 			opFix = "||"
 		}
-		return affects, fixes, true
+		return affects, fixes, true // 返回受影响版本和修复版本信息以及 true 表示存在
 	}
 
-	return nil, nil, false
+	return nil, nil, false // 如果不存在则返回空切片和 false 表示不存在
 }
 
 func (fetcher *NVDMetadataFetcher) LookupMetadata(name string) (string, float64, string, float64, bool) {
 	fetcher.lock.Lock()
 	defer fetcher.lock.Unlock()
 
-	if nvd, ok := fetcher.metadata[name]; ok {
+	if nvd, ok := fetcher.metadata[name]; ok { // 检查给定的 name 是否存在于 metadata 中
 		return nvd.CVSSv2.Vectors, nvd.CVSSv2.Score, nvd.CVSSv3.Vectors, nvd.CVSSv3.Score, true
 	}
 
@@ -448,60 +449,61 @@ func (fetcher *NVDMetadataFetcher) Clean() {
 }
 
 func getHashFromMetaURL(metaURL string) (string, error) {
-	r, err := http.Get(metaURL)
+	r, err := http.Get(metaURL) // 发送 HTTP 请求获取 metaURL 对应的网页内容
 	if err != nil {
 		return "", err
 	}
 	defer r.Body.Close()
 
-	scanner := bufio.NewScanner(r.Body)
+	scanner := bufio.NewScanner(r.Body) // 使用 bufio 包的 Scanner 进行逐行扫描网页内容
 	for scanner.Scan() {
-		line := scanner.Text()
-		if strings.HasPrefix(line, "sha256:") {
-			return strings.TrimPrefix(line, "sha256:"), nil
+		line := scanner.Text()                  // 获取当前行的文本内容
+		if strings.HasPrefix(line, "sha256:") { // 判断是否以 "sha256:" 开头
+			return strings.TrimPrefix(line, "sha256:"), nil // 提取哈希值并去除前缀 "sha256:"，返回哈希值和 nil 错误
 		}
 	}
-	if err := scanner.Err(); err != nil {
+	if err := scanner.Err(); err != nil { // 检查 Scanner 是否出错
 		return "", err
 	}
 
-	return "", errors.New("invalid .meta file format")
+	return "", errors.New("invalid .meta file format") // 返回自定义错误信息，表示 .meta 文件格式无效
 }
 
+// 获取给定 CVE 编号对应的描述信息
 func getCveDescription(cve string) string {
 	var description string
-	url := cveURLPrefix + cve
-	r, err := http.Get(url)
+	url := cveURLPrefix + cve // 构建 CVE 信息的 URL
+	r, err := http.Get(url)   // 发送 HTTP 请求获取网页内容
 	if err != nil {
-		log.WithFields(log.Fields{"cve": cve}).Error("no nvd data")
-		return description
+		log.WithFields(log.Fields{"cve": cve}).Error("no nvd data") // 记录错误日志：无法获取 CVE 数据
+		return description                                          // 返回空的描述信息
 	}
 	defer r.Body.Close()
 
-	var descEnable, descStart bool
-	scanner := bufio.NewScanner(r.Body)
+	var descEnable, descStart bool      // 描述信息使能标志和起始标志
+	scanner := bufio.NewScanner(r.Body) // 使用 bufio 包的 Scanner 进行逐行扫描网页内容
 	for scanner.Scan() {
-		line := scanner.Text()
+		line := scanner.Text() // 获取当前行的文本内容
 		if descEnable {
-			if strings.Contains(line, "<td colspan=") {
+			if strings.Contains(line, "<td colspan=") { // 根据 HTML 标签特征，判断是否是描述信息的起始行
 				descStart = true
 			}
-			if descStart && !strings.Contains(line, "<A HREF=") {
-				if i := strings.Index(line, "\">"); i > 0 {
+			if descStart && !strings.Contains(line, "<A HREF=") { // 判断是否是描述信息的结束行
+				if i := strings.Index(line, "\">"); i > 0 { // 提取描述信息，并去除 HTML 标签
 					description += line[i+2:]
-				} else if strings.Contains(line, "</td>") {
+				} else if strings.Contains(line, "</td>") { // 如果是描述信息的结束行，则直接返回当前描述信息
 					return description
 				} else {
-					description += line
+					description += line // 将当前行添加到描述信息中
 				}
-				if len(description) > 0 && description[len(description)-1] != '.' {
+				if len(description) > 0 && description[len(description)-1] != '.' { // 在描述信息末尾添加空格，除非已经以句号结尾
 					description += " "
 				}
 			}
 		}
-		if strings.Contains(line, ">Description</th>") {
-			descEnable = true
+		if strings.Contains(line, ">Description</th>") { // 根据 HTML 标签特征，判断是否是描述信息所在行
+			descEnable = true // 设置描述信息使能标志
 		}
 	}
-	return description
+	return description // 返回最终的 CVE 描述信息
 }
