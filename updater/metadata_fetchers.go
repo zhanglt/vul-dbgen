@@ -16,8 +16,8 @@ type VulnerabilityWithLock struct {
 type MetadataFetcher interface {
 
 	// Load 在 Updater 调用每个漏洞的 AddMetadata 之前运行。
-	Load(Datastore) error
-
+	//Load(Datastore) error
+	LoadFromfile(Datastore) error
 	// AddMetadata 向给定的 database.Vulnerability 添加元数据。
 	// 预期该获取器在操作 Metadata map 时使用 .Lock.Lock() 进行加锁。
 	AddMetadata(*VulnerabilityWithLock) error
