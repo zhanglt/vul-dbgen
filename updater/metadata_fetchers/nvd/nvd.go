@@ -285,6 +285,105 @@ func (fetcher *NVDMetadataFetcher) Load(datastore updater.Datastore) error {
 
 	return nil
 }
+func (fetcher *NVDMetadataFetcher) LoadFromfile(datastore updater.Datastore) error {
+	fetcher.lock.Lock()
+	defer fetcher.lock.Unlock()
+
+	var err error
+	fetcher.metadata = make(map[string]common.NVDMetadata)
+
+	// Init if necessary.
+	if fetcher.localPath == "" {
+		// Create a temporary folder to store the NVD data and create hashes struct.
+		if fetcher.localPath, err = ioutil.TempDir(os.TempDir(), "nvd-data"); err != nil {
+			return common.ErrFilesystem
+		}
+	}
+	defer os.RemoveAll(fetcher.localPath)
+
+	// Get data feeds.
+	for y := common.FirstYear; y <= time.Now().Year(); y++ {
+		dataFeedName := strconv.Itoa(y)
+
+		// json
+		//r, err := http.Get(fmt.Sprintf(jsonUrl, dataFeedName))
+		f, err := os.Open("nvdcve-1.1-" + dataFeedName + ".json.gz")
+		if err != nil {
+			log.Println("file open error:", err)
+		}
+		// Un-gzip it.
+		body, err := ioutil.ReadAll(f)
+		if err != nil {
+			log.Println("readall  error:", err)
+		}
+		jsonData := utils.GunzipBytes(body)
+
+		var nvdData NvdData
+		err = json.Unmarshal(jsonData, &nvdData)
+		if err != nil {
+			log.Errorf("Failed to unmarshal NVD data feed file '%s': %s", dataFeedName, err)
+			return common.ErrCouldNotDownload
+		}
+		for _, cve := range nvdData.CVEItems {
+			var meta common.NVDMetadata
+			if len(cve.Cve.Description.DescriptionData) > 0 {
+				meta.Description = cve.Cve.Description.DescriptionData[0].Value
+			}
+			if cve.Cve.CVEDataMeta.ID != "" {
+				if cve.Impact.BaseMetricV3.CvssV3.BaseScore != 0 {
+					meta.CVSSv3.Vectors = cve.Impact.BaseMetricV3.CvssV3.VectorString
+					meta.CVSSv3.Score = cve.Impact.BaseMetricV3.CvssV3.BaseScore
+				}
+				if cve.Impact.BaseMetricV2.CvssV2.BaseScore != 0 {
+					meta.CVSSv2.Vectors = cve.Impact.BaseMetricV2.CvssV2.VectorString
+					meta.CVSSv2.Score = cve.Impact.BaseMetricV2.CvssV2.BaseScore
+				}
+				if cve.PublishedDate != "" {
+					if t, err := time.Parse(timeFormat, cve.PublishedDate); err == nil {
+						meta.PublishedDate = t
+					}
+				}
+				if cve.LastModifiedDate != "" {
+					if t, err := time.Parse(timeFormat, cve.LastModifiedDate); err == nil {
+						meta.LastModifiedDate = t
+					}
+				}
+
+				meta.VulnVersions = make([]common.NVDvulnerableVersion, 0)
+				for _, node := range cve.Configurations.Nodes {
+					if node.Operator == "OR" && len(node.CpeMatch) > 0 {
+						for _, m := range node.CpeMatch {
+							if m.Vulnerable &&
+								// TODO: explicitly ignore microsoft:visual_studio_, as it is often confused with .net core version
+								!strings.Contains(m.Cpe23URI, "microsoft:visual_studio_") &&
+								(m.VersionStartIncluding != "" ||
+									m.VersionStartExcluding != "" ||
+									m.VersionEndIncluding != "" ||
+									m.VersionEndExcluding != "") {
+								meta.VulnVersions = append(meta.VulnVersions, common.NVDvulnerableVersion{
+									StartIncluding: m.VersionStartIncluding,
+									StartExcluding: m.VersionStartExcluding,
+									EndIncluding:   m.VersionEndIncluding,
+									EndExcluding:   m.VersionEndExcluding,
+								})
+							}
+						}
+					}
+				}
+
+				fetcher.metadata[cve.Cve.CVEDataMeta.ID] = meta
+
+				// log.WithFields(log.Fields{"cve": cve.Cve.CVEDataMeta.ID, "v3": meta.CVSSv3.Score}).Info()
+
+			}
+
+			log.WithFields(log.Fields{"year": dataFeedName, "count": len(nvdData.CVEItems)}).Info()
+			break
+		}
+	}
+
+	return nil
+}
 
 var redhatCveRegexp = regexp.MustCompile(`\(CVE-([0-9]+)-([0-9]+)`)
 
