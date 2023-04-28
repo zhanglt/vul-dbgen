@@ -3,7 +3,7 @@
 .vscode
 *.code-workspace
 *.bak
-
+cnvd20230428.db
 /dbgen
 /cvedb
 /cvedb.*
