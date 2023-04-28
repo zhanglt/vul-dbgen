@@ -44,16 +44,15 @@ func init() {
 
 // 更具cve编号 搜索在cnnvd中的中文说明
 func getDescribe(db *sql.DB, cveid string, srcDescribe string) string {
-	var url, cnnvd_level, cnnvd_title, cve_id, patch, reference_url, threat_type, update, upload_time, vulnerable_detail, vulnerable_notice, vulnerable_type sql.NullString
-
-	rows := db.QueryRow(`SELECT * FROM CNNVD201910 where cve_id=$1`, cveid)
-	err = rows.Scan(&url, &cnnvd_level, &cnnvd_title, &cve_id, &patch, &reference_url, &threat_type, &update, &upload_time, &vulnerable_detail, &vulnerable_notice, &vulnerable_type)
+	var number, title, serverity, products, isEvent, submitTime, openTime, discovererName, referenceLink, formalWay, description, patchDescription, patchName, cveNumber, bids, cveUrl, cves sql.NullString
+	rows := db.QueryRow(`SELECT * FROM cnvd20230428 where number=$1`, cveid)
+	err = rows.Scan(&number, &title, &serverity, &products, &isEvent, &submitTime, &openTime, &discovererName, &referenceLink, &formalWay, &description, &patchDescription, &patchName, &cveNumber, &bids, &cveUrl, &cves)
 	if err != nil {
 		return srcDescribe
 	}
 	i = i + 1
 	log.Println("cnnvd 计数器：", i)
-	return vulnerable_detail.String
+	return description.String
 
 }
 
@@ -94,7 +93,8 @@ func modVulToVulFull(v updater.Vulnerability) common.VulFull {
 	var vv1 common.VulFull
 	vv1.Name = v.Name
 	vv1.Namespace = v.Namespace
-	vv1.Description = v.Description
+	vv1.Description = getDescribe(DB, v.Name, v.Description) //替换为cnnvd的describtion
+	//vv1.Description = v.Description
 	vv1.Link = v.Link
 	vv1.Severity = string(v.Severity)
 	vv1.FeedRating = v.FeedRating
