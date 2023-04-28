@@ -167,7 +167,10 @@ func fetch(datastore Datastore) (bool, []Vulnerability, []common.AppModuleVul, [
 
 // Add metadata to the specified vulnerabilities using the registered MetadataFetchers, in parallel.
 func addMetadata(datastore Datastore, vulnerabilities []Vulnerability) ([]Vulnerability, bool) {
+<<<<<<< HEAD
 	var i int
+=======
+>>>>>>> 64b71b4030e9487cc935b46e05553f1209bc1e9e
 	status := true
 	if len(metadataFetchers) == 0 {
 		return vulnerabilities, false
@@ -204,13 +207,19 @@ func addMetadata(datastore Datastore, vulnerabilities []Vulnerability) ([]Vulner
 				i = i + 1
 				log.Println("add metadata----:", i)
 				log.Println("vulnerability---:", vulnerability.Name)
+			// Add metadata to each vulnerability.
+			for _, vulnerability := range vulnerabilitiesWithLocks {
 				metadataFetcher.AddMetadata(vulnerability)
 			}
 		}(n, f)
 	}
 
 	wg.Wait()
+<<<<<<< HEAD
 	log.Println("addMetadata end......")
+=======
+
+>>>>>>> 64b71b4030e9487cc935b46e05553f1209bc1e9e
 	return vulnerabilities, status
 }
 
