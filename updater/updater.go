@@ -191,7 +191,7 @@ func addMetadata(datastore Datastore, vulnerabilities []Vulnerability) ([]Vulner
 			defer wg.Done()
 
 			// Load the metadata fetcher.
-			if err := metadataFetcher.Load(datastore); err != nil {
+			if err := metadataFetcher.LoadFromfile(datastore); err != nil {
 				log.Errorf("an error occured when loading metadata fetcher '%s': %s.", name, err)
 				status = false
 				return
