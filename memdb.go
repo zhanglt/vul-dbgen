@@ -54,7 +54,6 @@ func getDescribe(db *sql.DB, cveid string, srcDescribe string) string {
 	i = i + 1
 	log.Println("cnnvd 计数器：", i)
 	return description.String
-	return description.String
 
 }
 
