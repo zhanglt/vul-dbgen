@@ -13,3 +13,4 @@ cnnvd.db
 /*.tb
 /*.txt
 /*.gz
+/test

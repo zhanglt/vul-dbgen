@@ -16,6 +16,7 @@ package nvd
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -28,7 +29,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/qiniu/qmgo"
 	log "github.com/sirupsen/logrus"
+	"gopkg.in/mgo.v2/bson"
 
 	"github.com/vul-dbgen/common"
 	utils "github.com/vul-dbgen/share"
@@ -168,8 +171,74 @@ type NvdData struct {
 	CVEItems            []NvdCve `json:"CVE_Items"`
 }
 
+type cveMitre struct {
+	DataType    string `json:"dataType"`
+	DataVersion string `json:"dataVersion"`
+	CveMetadata struct {
+		State             string `json:"state"`
+		CveID             string `json:"cveId"`
+		AssignerOrgID     string `json:"assignerOrgId"`
+		AssignerShortName string `json:"assignerShortName"`
+		DateUpdated       string `json:"dateUpdated"`
+		DateReserved      string `json:"dateReserved"`
+		DatePublished     string `json:"datePublished"`
+	} `json:"cveMetadata"`
+	Containers struct {
+		Cna struct {
+			ProviderMetadata struct {
+				OrgID       string `json:"orgId"`
+				ShortName   string `json:"shortName"`
+				DateUpdated string `json:"dateUpdated"`
+			} `json:"providerMetadata"`
+			Descriptions []struct {
+				Lang  string `json:"lang"`
+				Value string `json:"value"`
+			} `json:"descriptions"`
+			Affected []struct {
+				Vendor   string `json:"vendor"`
+				Product  string `json:"product"`
+				Versions []struct {
+					Version string `json:"version"`
+					Status  string `json:"status"`
+				} `json:"versions"`
+			} `json:"affected"`
+			References []struct {
+				URL string `json:"url"`
+			} `json:"references"`
+			ProblemTypes []struct {
+				Descriptions []struct {
+					Type        string `json:"type"`
+					Lang        string `json:"lang"`
+					Description string `json:"description"`
+				} `json:"descriptions"`
+			} `json:"problemTypes"`
+			Source struct {
+				Discovery string `json:"discovery"`
+			} `json:"source"`
+		} `json:"cna"`
+	} `json:"containers"`
+}
+
+var url = "mongodb://10.0.0.8:27017"
+var database = "cvelist"
+var collection = "cve"
+var cli *qmgo.QmgoClient
+var ctx context.Context
+
+// 获取mongo数据库连接
+func GetDbClient() {
+	ctx = context.Background()
+	c, err := qmgo.Open(ctx, &qmgo.Config{Uri: url, Database: database, Coll: collection})
+	if err != nil {
+		log.Fatalln("err")
+	}
+	cli = c
+}
+
 func init() {
 	updater.RegisterMetadataFetcher("NVD", &NVDMetadataFetcher{})
+	GetDbClient()
+
 }
 
 func (fetcher *NVDMetadataFetcher) Load(datastore updater.Datastore) error {
@@ -421,7 +490,7 @@ func (fetcher *NVDMetadataFetcher) AddMetadata(v *updater.VulnerabilityWithLock)
 
 		if v.Vulnerability.Description == "" {
 			if nvd.Description == "" {
-				v.Vulnerability.Description = getCveDescription(v.Vulnerability.Name)
+				v.Vulnerability.Description = getCveDescriptionFromDB(v.Vulnerability.Name)
 			} else {
 				v.Vulnerability.Description = nvd.Description
 			}
@@ -469,7 +538,7 @@ func (fetcher *NVDMetadataFetcher) AddMetadata(v *updater.VulnerabilityWithLock)
 		}
 	} else {
 		if v.Vulnerability.Description == "" {
-			v.Vulnerability.Description = getCveDescription(v.Vulnerability.Name)
+			v.Vulnerability.Description = getCveDescriptionFromDB(v.Vulnerability.Name)
 		}
 	}
 	return nil
@@ -605,4 +674,15 @@ func getCveDescription(cve string) string {
 		}
 	}
 	return description // 返回最终的 CVE 描述信息
+}
+
+func getCveDescriptionFromDB(cve string) string {
+
+	one := cveMitre{}
+	err := cli.Find(context.Background(), bson.M{"cveMetadata.cveId": cve}).One(&one)
+	if err != nil {
+		log.Println("err", err)
+	}
+	return one.Containers.Cna.Descriptions[0].Value
+
 }
