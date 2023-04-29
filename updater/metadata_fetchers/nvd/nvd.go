@@ -682,7 +682,12 @@ func getCveDescriptionFromDB(cve string) string {
 	err := cli.Find(context.Background(), bson.M{"cveMetadata.cveId": cve}).One(&one)
 	if err != nil {
 		log.Println("err", err)
+		return "Descrrption not found "
 	}
-	return one.Containers.Cna.Descriptions[0].Value
+	if len(one.Containers.Cna.Descriptions) > 0 {
+		return one.Containers.Cna.Descriptions[0].Value
+	} else {
+		return "Descrrption not found "
+	}
 
 }

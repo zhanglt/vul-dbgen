@@ -25,7 +25,7 @@ var i int
 
 func init() {
 	//打开 cnnvd数据库
-	DB, err = sql.Open("sqlite3", "cnnvd.db")
+	DB, err = sql.Open("sqlite3", "cnvd20230428.db")
 	if err != nil {
 		panic(err)
 	}
@@ -38,21 +38,18 @@ func init() {
 	DB.SetConnMaxLifetime(time.Second * 10) //最大存活保持时间
 	DB.SetConnMaxIdleTime(time.Second * 10) //最大空闲保持时间
 
-	return
-
 }
 
 // 更具cve编号 搜索在cnnvd中的中文说明
 func getDescribe(db *sql.DB, cveid string, srcDescribe string) string {
 	var number, title, serverity, products, isEvent, submitTime, openTime, discovererName, referenceLink, formalWay, description, patchDescription, patchName, cveNumber, bids, cveUrl, cves sql.NullString
-	rows := db.QueryRow(`SELECT * FROM cnvd20230428 where number=$1`, cveid)
+	rows := db.QueryRow(`SELECT * FROM cnvd20230428 where cveNumber=$1`, cveid)
 	err = rows.Scan(&number, &title, &serverity, &products, &isEvent, &submitTime, &openTime, &discovererName, &referenceLink, &formalWay, &description, &patchDescription, &patchName, &cveNumber, &bids, &cveUrl, &cves)
-
 	if err != nil {
 		return srcDescribe
 	}
 	i = i + 1
-	log.Println("cnnvd 计数器：", i)
+	log.Println("-----------cnnvd------------- 计数器：", i)
 	return description.String
 
 }
