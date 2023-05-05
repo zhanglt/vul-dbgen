@@ -24,7 +24,7 @@ var err error
 var i int
 
 func init() {
-	//打开 cnnvd数据库
+	//打开 cnvd数据库
 	DB, err = sql.Open("sqlite3", "cnvd20230428.db")
 	if err != nil {
 		panic(err)
@@ -40,12 +40,13 @@ func init() {
 
 }
 
-// 更具cve编号 搜索在cnnvd中的中文说明
+// 更具cve编号 搜索在cnvd中的中文说明
 func getDescribe(db *sql.DB, cveid string, srcDescribe string) string {
 	var number, title, serverity, products, isEvent, submitTime, openTime, discovererName, referenceLink, formalWay, description, patchDescription, patchName, cveNumber, bids, cveUrl, cves sql.NullString
-	rows := db.QueryRow(`SELECT * FROM cnvd20230428 where cveNumber=$1`, cveid)
+	rows := db.QueryRow("SELECT * FROM cnvd20230428 where cveNumber=$1", cveid)
 	err = rows.Scan(&number, &title, &serverity, &products, &isEvent, &submitTime, &openTime, &discovererName, &referenceLink, &formalWay, &description, &patchDescription, &patchName, &cveNumber, &bids, &cveUrl, &cves)
 	if err != nil {
+		log.Debug("cve ID:", cveid, "数据库中没有搜索到:", err)
 		return srcDescribe
 	}
 	i = i + 1

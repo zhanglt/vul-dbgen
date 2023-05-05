@@ -171,6 +171,7 @@ type NvdData struct {
 	CVEItems            []NvdCve `json:"CVE_Items"`
 }
 
+// cvemitre的对应struct
 type cveMitre struct {
 	DataType    string `json:"dataType"`
 	DataVersion string `json:"dataVersion"`
@@ -354,6 +355,8 @@ func (fetcher *NVDMetadataFetcher) Load(datastore updater.Datastore) error {
 
 	return nil
 }
+
+// 从本地文件中读物 nvd数据，提升更新效率，但需要维护本地数据文件
 func (fetcher *NVDMetadataFetcher) LoadFromfile(datastore updater.Datastore) error {
 	fetcher.lock.Lock()
 	defer fetcher.lock.Unlock()
@@ -490,7 +493,9 @@ func (fetcher *NVDMetadataFetcher) AddMetadata(v *updater.VulnerabilityWithLock)
 
 		if v.Vulnerability.Description == "" {
 			if nvd.Description == "" {
+				//更换为了 从mongo数据库中更新
 				v.Vulnerability.Description = getCveDescriptionFromDB(v.Vulnerability.Name)
+				//v.Vulnerability.Description = getCveDescription(v.Vulnerability.Name)
 			} else {
 				v.Vulnerability.Description = nvd.Description
 			}
@@ -538,7 +543,9 @@ func (fetcher *NVDMetadataFetcher) AddMetadata(v *updater.VulnerabilityWithLock)
 		}
 	} else {
 		if v.Vulnerability.Description == "" {
+			//更换为了 从mongo数据库中更新
 			v.Vulnerability.Description = getCveDescriptionFromDB(v.Vulnerability.Name)
+			//v.Vulnerability.Description = getCveDescription(v.Vulnerability.Name)
 		}
 	}
 	return nil
@@ -676,18 +683,24 @@ func getCveDescription(cve string) string {
 	return description // 返回最终的 CVE 描述信息
 }
 
+// 从mongodb数据库中获取给定 CVE 编号对应的描述信息
+// 提升更新效率，但需要自行维护mongo数据库
 func getCveDescriptionFromDB(cve string) string {
-
+	log.Println("cveMetadata.cveId:", cve)
 	one := cveMitre{}
 	err := cli.Find(context.Background(), bson.M{"cveMetadata.cveId": cve}).One(&one)
 	if err != nil {
-		log.Println("err", err)
-		return "Descrrption not found "
+		log.Println("err:", err)
+		return "Chinese Description not found "
 	}
+	log.Println("-------------cve--------：", cve)
+
 	if len(one.Containers.Cna.Descriptions) > 0 {
+		log.Println("-------------cve--------：", cve)
+		log.Println("-------------cone.Containers.Cna.Descriptions--------：", one.Containers.Cna.Descriptions[0].Value)
 		return one.Containers.Cna.Descriptions[0].Value
 	} else {
-		return "Descrrption not found "
+		return "Chinese Description not found "
 	}
 
 }

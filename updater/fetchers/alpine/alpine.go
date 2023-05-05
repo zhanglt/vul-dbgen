@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"regexp"
 	"strings"
 
@@ -206,7 +205,8 @@ func (u *AlpineFetcher) FetchUpdate() (resp updater.FetcherResponse, err error) 
 
 func (u *AlpineFetcher) Clean() {
 	if u.repositoryLocalPath != "" {
-		os.RemoveAll(u.repositoryLocalPath)
+		log.Println("u.repositoryLocalPath=============================:", u.repositoryLocalPath)
+		//os.RemoveAll(u.repositoryLocalPath)
 	}
 
 	// if u.aportsLocalPath != "" {
